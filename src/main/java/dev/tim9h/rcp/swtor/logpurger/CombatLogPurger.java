@@ -60,9 +60,10 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 		var duration = Duration.between(now, nextRun);
 		long initialDelay = duration.getSeconds();
 
-		var scheduler = Executors.newScheduledThreadPool(1);
-		scheduler.scheduleAtFixedRate(this::deleteCombatLogs, initialDelay, TimeUnit.DAYS.toSeconds(1),
-				TimeUnit.SECONDS);
+		try (var scheduler = Executors.newScheduledThreadPool(1)) {
+			scheduler.scheduleAtFixedRate(this::deleteCombatLogs, initialDelay, TimeUnit.DAYS.toSeconds(1),
+					TimeUnit.SECONDS);
+		}
 	}
 
 	public void deleteCombatLogs() {
