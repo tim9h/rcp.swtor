@@ -3,6 +3,7 @@ package dev.tim9h.rcp.swtor;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -10,16 +11,21 @@ import org.apache.logging.log4j.Logger;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 
-import dev.tim9h.swtor.parser.CombatLogWatcher;
-import dev.tim9h.swtor.parser.bean.CombatLog;
 import dev.tim9h.rcp.event.EventManager;
 import dev.tim9h.rcp.logging.InjectLogger;
 import dev.tim9h.rcp.spi.CCard;
 import dev.tim9h.rcp.spi.Mode;
+import dev.tim9h.rcp.spi.TreeNode;
 import dev.tim9h.rcp.swtor.loadingscreen.LoadingScreenWatcher;
 import dev.tim9h.rcp.swtor.logpurger.CombatLogPurger;
+import dev.tim9h.swtor.parser.CombatLogWatcher;
+import dev.tim9h.swtor.parser.bean.CombatLog;
 
 public class SwtorView implements CCard {
+
+	private static final String COMBATLOGS = "combatlogs";
+
+	private static final String PURGE = "purge";
 
 	@InjectLogger
 	private Logger logger;
@@ -92,6 +98,26 @@ public class SwtorView implements CCard {
 	@Override
 	public void onShutdown() {
 		combatLogWatcher.stopWatching();
+	}
+
+	@Override
+	public Optional<TreeNode<String>> getModelessCommands() {
+		var tree = new TreeNode<>(StringUtils.EMPTY);
+		tree.add(COMBATLOGS).add(PURGE);
+		return Optional.of(tree);
+	}
+
+	@Override
+	public void initBus(EventManager em) {
+		CCard.super.initBus(eventManager);
+		em.listen(COMBATLOGS, this::handleCommands);
+	}
+
+	private void handleCommands(Object[] data) {
+		if (data != null && PURGE.equals(data[0])) {
+			eventManager.showWaitingIndicator();
+			CompletableFuture.runAsync(() -> combatLogPurger.deleteCombatLogs());
+		}
 	}
 
 	private void acceptLog(CombatLog log) {

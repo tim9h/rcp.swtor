@@ -107,7 +107,9 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 			eventManager.echoAsync(msg);
 			eventManager.showToast("SWToR", msg);
 		} else {
-			logger.info(() -> "No combat logs older than " + maxAge + " days found");
+			var msg = String.format("No combat logs older than %d days found", maxAge);
+			eventManager.echoAsync(msg);
+			logger.info(() -> msg);
 		}
 		maxAge = -1;
 		deletedLogsCount = 0;
