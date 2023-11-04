@@ -15,6 +15,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import javax.swing.filechooser.FileSystemView;
@@ -22,12 +24,14 @@ import javax.swing.filechooser.FileSystemView;
 import org.apache.logging.log4j.Logger;
 
 import com.google.inject.Inject;
+import com.google.inject.Singleton;
 
 import dev.tim9h.rcp.event.EventManager;
 import dev.tim9h.rcp.logging.InjectLogger;
 import dev.tim9h.rcp.settings.Settings;
 import dev.tim9h.rcp.swtor.SwtorViewFactory;
 
+@Singleton
 public class CombatLogPurger extends SimpleFileVisitor<Path> {
 
 	@InjectLogger
@@ -43,6 +47,10 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 
 	private int deletedLogsCount = 0;
 
+	private ScheduledExecutorService scheduler;
+
+	private ScheduledFuture<?> combatLogPurge;
+
 	public void initCombatLogPurgerScheduler() {
 		var deletionTime = settings.getString(SwtorViewFactory.SETTINGR_COMBATLOGS_DELETIONTIME);
 		ZonedDateTime nextRun;
@@ -53,17 +61,23 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 			logger.warn(() -> "Unable to parse combat log deletion time. Using 00:00 instead of " + deletionTime);
 			nextRun = ZonedDateTime.now().withHour(0).withMinute(0).withSecond(0);
 		}
+
 		var now = ZonedDateTime.now();
 		if (now.compareTo(nextRun) > 0) {
 			nextRun = nextRun.plusDays(1);
 		}
 		var duration = Duration.between(now, nextRun);
-		long initialDelay = duration.getSeconds();
+		var initialDelay = duration.getSeconds();
 
-		try (var scheduler = Executors.newScheduledThreadPool(1)) {
-			scheduler.scheduleAtFixedRate(this::deleteCombatLogs, initialDelay, TimeUnit.DAYS.toSeconds(1),
-					TimeUnit.SECONDS);
+		if (scheduler == null) {
+			scheduler = Executors.newScheduledThreadPool(1);
 		}
+
+		combatLogPurge = scheduler.scheduleAtFixedRate(this::deleteCombatLogs, initialDelay, TimeUnit.DAYS.toSeconds(1),
+				TimeUnit.SECONDS);
+
+		var nr = nextRun;
+		logger.debug(() -> String.format("Scheduled with initial delay %d (%s)", Long.valueOf(initialDelay), nr));
 	}
 
 	public void deleteCombatLogs() {
@@ -107,7 +121,7 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 			eventManager.echoAsync(msg);
 			eventManager.showToast("SWToR", msg);
 		} else {
-			var msg = String.format("No combat logs older than %d days found", maxAge);
+			var msg = String.format("No combat logs older than %d days found", Long.valueOf(maxAge));
 			eventManager.echoAsync(msg);
 			logger.info(() -> msg);
 		}
@@ -121,6 +135,13 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 			maxAge = settings.getLong(SwtorViewFactory.SETTINGR_COMBATLOGS_MAXAGE).longValue();
 		}
 		return maxAge;
+	}
+
+	public void close() {
+		logger.debug(() -> "Shutting down combatlog purge task and scheduler");
+		combatLogPurge.cancel(false);
+		scheduler.shutdownNow();
+		logger.debug(() -> "Combatlog purger shutdown complete");
 	}
 
 }

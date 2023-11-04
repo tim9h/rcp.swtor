@@ -97,6 +97,7 @@ public class SwtorView implements CCard {
 
 	@Override
 	public void onShutdown() {
+		combatLogPurger.close();
 		combatLogWatcher.stopWatching();
 	}
 
