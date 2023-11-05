@@ -1,9 +1,15 @@
 package dev.tim9h.rcp.swtor;
 
+import java.awt.Desktop;
+import java.io.IOException;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+
+import javax.swing.filechooser.FileSystemView;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -104,20 +110,28 @@ public class SwtorView implements CCard {
 	@Override
 	public Optional<TreeNode<String>> getModelessCommands() {
 		var tree = new TreeNode<>(StringUtils.EMPTY);
-		tree.add(COMBATLOGS).add(PURGE);
+		var swtor = new TreeNode<>("swtor");
+		swtor.add("screenshotdir");
+		swtor.add(COMBATLOGS).add(PURGE);
+		tree.add(swtor);
 		return Optional.of(tree);
 	}
 
 	@Override
 	public void initBus(EventManager em) {
 		CCard.super.initBus(eventManager);
-		em.listen(COMBATLOGS, this::handleCommands);
+		em.listen("swtor", this::handleSwtorCommands);
 	}
 
-	private void handleCommands(Object[] data) {
-		if (data != null && PURGE.equals(data[0])) {
+	private void handleSwtorCommands(Object[] data) {
+		if (data == null) {
+			return;
+		}
+		if (COMBATLOGS.equals(data[0]) && data.length > 0 && PURGE.equals(data[1])) {
 			eventManager.showWaitingIndicator();
 			CompletableFuture.runAsync(() -> combatLogPurger.deleteCombatLogs());
+		} else if ("screenshotdir".equals(data[0])) {
+			openScreenshotDirectory();
 		}
 	}
 
@@ -125,6 +139,16 @@ public class SwtorView implements CCard {
 		if ("AreaEntered".equals(log.getEffect().getEvent()) && StringUtils.isNotBlank(log.getEffect().getArea())) {
 			logger.info(() -> String.format("%s entered %s", log.getSource().getName(), log.getEffect().getArea()));
 			eventManager.showToast(log.getEffect().getEffect(), log.getEffect().getArea());
+		}
+	}
+
+	private void openScreenshotDirectory() {
+		try {
+			var directory = Path.of(FileSystemView.getFileSystemView().getDefaultDirectory().toString(),
+					"Star Wars - The Old Republic", "Screenshots");
+			Desktop.getDesktop().open(directory.toFile());
+		} catch (InvalidPathException | IOException e) {
+			logger.warn(() -> "Unable to screenshots directory: " + e.getMessage(), e);
 		}
 	}
 
