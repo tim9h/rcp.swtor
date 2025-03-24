@@ -127,9 +127,13 @@ public class SwtorView implements CCard {
 		if (data == null) {
 			return;
 		}
-		if (COMBATLOGS.equals(data[0]) && data.length > 0 && PURGE.equals(data[1])) {
-			eventManager.showWaitingIndicator();
-			CompletableFuture.runAsync(() -> combatLogPurger.deleteCombatLogs());
+		if (COMBATLOGS.equals(data[0])) {
+			if (data.length > 1 && PURGE.equals(data[1])) {
+				eventManager.showWaitingIndicator();
+				CompletableFuture.runAsync(() -> combatLogPurger.deleteCombatLogs());
+			} else {
+				openCombatLogsDirectory();
+			}
 		} else if ("screenshotdir".equals(data[0])) {
 			openScreenshotDirectory();
 		}
@@ -149,6 +153,16 @@ public class SwtorView implements CCard {
 			Desktop.getDesktop().open(directory.toFile());
 		} catch (InvalidPathException | IOException e) {
 			logger.warn(() -> "Unable to screenshots directory: " + e.getMessage(), e);
+		}
+	}
+	
+	private void openCombatLogsDirectory() {
+		try {
+			var directory = Path.of(FileSystemView.getFileSystemView().getDefaultDirectory().toString(),
+					"Star Wars - The Old Republic", "CombatLogs");
+			Desktop.getDesktop().open(directory.toFile());
+		} catch (InvalidPathException | IOException e) {
+			logger.warn(() -> "Unable to combatlogs directory: " + e.getMessage(), e);
 		}
 	}
 
