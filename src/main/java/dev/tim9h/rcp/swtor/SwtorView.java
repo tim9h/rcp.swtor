@@ -21,6 +21,7 @@ import dev.tim9h.rcp.event.EventManager;
 import dev.tim9h.rcp.logging.InjectLogger;
 import dev.tim9h.rcp.spi.CCard;
 import dev.tim9h.rcp.spi.Mode;
+import dev.tim9h.rcp.spi.StringNode;
 import dev.tim9h.rcp.spi.TreeNode;
 import dev.tim9h.rcp.swtor.loadingscreen.LoadingScreenWatcher;
 import dev.tim9h.rcp.swtor.logpurger.CombatLogPurger;
@@ -109,7 +110,7 @@ public class SwtorView implements CCard {
 
 	@Override
 	public Optional<TreeNode<String>> getModelessCommands() {
-		var tree = new TreeNode<>(StringUtils.EMPTY);
+		var tree = new StringNode();
 		var swtor = new TreeNode<>("swtor");
 		swtor.add("screenshotdir");
 		swtor.add(COMBATLOGS).add(PURGE);
