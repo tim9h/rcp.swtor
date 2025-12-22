@@ -4,10 +4,10 @@ import java.util.Map;
 
 import com.google.inject.Inject;
 
-import dev.tim9h.rcp.spi.CCard;
-import dev.tim9h.rcp.spi.CCardFactory;
+import dev.tim9h.rcp.spi.Plugin;
+import dev.tim9h.rcp.spi.PluginFactory;
 
-public class SwtorViewFactory implements CCardFactory {
+public class SwtorViewFactory implements PluginFactory {
 
 	public static final String SETTINGR_INSTALLATION_LOCATION = "swtor.installation.location";
 
@@ -26,7 +26,7 @@ public class SwtorViewFactory implements CCardFactory {
 	}
 
 	@Override
-	public CCard createCCard() {
+	public Plugin create() {
 		return view;
 	}
 

@@ -19,8 +19,8 @@ import com.google.inject.Injector;
 
 import dev.tim9h.rcp.event.EventManager;
 import dev.tim9h.rcp.logging.InjectLogger;
-import dev.tim9h.rcp.spi.CCard;
 import dev.tim9h.rcp.spi.Mode;
+import dev.tim9h.rcp.spi.Plugin;
 import dev.tim9h.rcp.spi.StringNode;
 import dev.tim9h.rcp.spi.TreeNode;
 import dev.tim9h.rcp.swtor.loadingscreen.LoadingScreenWatcher;
@@ -28,7 +28,7 @@ import dev.tim9h.rcp.swtor.logpurger.CombatLogPurger;
 import dev.tim9h.swtor.parser.CombatLogWatcher;
 import dev.tim9h.swtor.parser.bean.CombatLog;
 
-public class SwtorView implements CCard {
+public class SwtorView implements Plugin {
 
 	private static final String COMBATLOGS = "combatlogs";
 
@@ -120,7 +120,7 @@ public class SwtorView implements CCard {
 
 	@Override
 	public void initBus(EventManager em) {
-		CCard.super.initBus(eventManager);
+		Plugin.super.initBus(eventManager);
 		em.listen("swtor", this::handleSwtorCommands);
 	}
 
