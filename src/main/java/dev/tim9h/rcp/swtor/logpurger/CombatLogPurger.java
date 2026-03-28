@@ -29,7 +29,7 @@ import com.google.inject.Singleton;
 import dev.tim9h.rcp.event.EventManager;
 import dev.tim9h.rcp.logging.InjectLogger;
 import dev.tim9h.rcp.settings.Settings;
-import dev.tim9h.rcp.swtor.SwtorViewFactory;
+import dev.tim9h.rcp.swtor.SwtorView;
 
 @Singleton
 public class CombatLogPurger extends SimpleFileVisitor<Path> {
@@ -52,7 +52,7 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 	private ScheduledFuture<?> combatLogPurge;
 
 	public void initCombatLogPurgerScheduler() {
-		var deletionTime = settings.getString(SwtorViewFactory.SETTINGR_COMBATLOGS_DELETIONTIME);
+		var deletionTime = settings.getString(SwtorView.SETTINGR_COMBATLOGS_DELETIONTIME);
 		ZonedDateTime nextRun;
 		try {
 			var time = LocalTime.parse(deletionTime, DateTimeFormatter.ofPattern("HH:mm"));
@@ -82,7 +82,7 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 
 	public void deleteCombatLogs() {
 		logger.info(() -> "Started combat file deletion");
-		var combatLogManagmentEnabled = settings.getInt(SwtorViewFactory.SETTINGR_COMBATLOGS_MAXAGE) != null;
+		var combatLogManagmentEnabled = settings.getInt(SwtorView.SETTINGR_COMBATLOGS_MAXAGE) != null;
 		if (combatLogManagmentEnabled) {
 			var path = Path.of(FileSystemView.getFileSystemView().getDefaultDirectory().toString(),
 					"Star Wars - The Old Republic", "CombatLogs");
@@ -132,7 +132,7 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 
 	private long getMaxAge() {
 		if (maxAge == -1) {
-			maxAge = settings.getLong(SwtorViewFactory.SETTINGR_COMBATLOGS_MAXAGE).longValue();
+			maxAge = settings.getLong(SwtorView.SETTINGR_COMBATLOGS_MAXAGE).longValue();
 		}
 		return maxAge;
 	}

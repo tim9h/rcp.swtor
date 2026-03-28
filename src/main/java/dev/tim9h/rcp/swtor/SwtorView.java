@@ -6,6 +6,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -15,7 +16,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 
 import com.google.inject.Inject;
-import com.google.inject.Injector;
 
 import dev.tim9h.rcp.event.EventManager;
 import dev.tim9h.rcp.logging.InjectLogger;
@@ -29,6 +29,14 @@ import dev.tim9h.swtor.parser.CombatLogWatcher;
 import dev.tim9h.swtor.parser.bean.CombatLog;
 
 public class SwtorView implements Plugin {
+
+	public static final String SETTINGR_INSTALLATION_LOCATION = "swtor.installation.location";
+
+	public static final String SETTINGR_LOADINGSCREEN_LOCATION = "swtor.loadingscreen.location";
+
+	public static final String SETTINGR_COMBATLOGS_MAXAGE = "swtor.combatlogs.maxage";
+
+	public static final String SETTINGR_COMBATLOGS_DELETIONTIME = "swtor.combatlogs.deletiontime";
 
 	private static final String COMBATLOGS = "combatlogs";
 
@@ -54,9 +62,13 @@ public class SwtorView implements Plugin {
 		return "SWToR Tools";
 	}
 
-	@Inject
-	public SwtorView(Injector injector) {
-		injector.injectMembers(this);
+	@Override
+	public String getId() {
+		return "swtor";
+	}
+
+	@Override
+	public void init() {
 		combatLogPurger.initCombatLogPurgerScheduler();
 	}
 
@@ -156,7 +168,7 @@ public class SwtorView implements Plugin {
 			logger.warn(() -> "Unable to screenshots directory: " + e.getMessage(), e);
 		}
 	}
-	
+
 	private void openCombatLogsDirectory() {
 		try {
 			var directory = Path.of(FileSystemView.getFileSystemView().getDefaultDirectory().toString(),
@@ -165,6 +177,12 @@ public class SwtorView implements Plugin {
 		} catch (InvalidPathException | IOException e) {
 			logger.warn(() -> "Unable to combatlogs directory: " + e.getMessage(), e);
 		}
+	}
+
+	@Override
+	public Map<String, String> getSettingsContributions() {
+		return Map.of(SETTINGR_INSTALLATION_LOCATION, "C:\\games\\SWToR", SETTINGR_LOADINGSCREEN_LOCATION, "",
+				SETTINGR_COMBATLOGS_MAXAGE, "5", SETTINGR_COMBATLOGS_DELETIONTIME, "23:50");
 	}
 
 }

@@ -21,7 +21,7 @@ import com.google.inject.Injector;
 import dev.tim9h.rcp.event.EventManager;
 import dev.tim9h.rcp.logging.InjectLogger;
 import dev.tim9h.rcp.settings.Settings;
-import dev.tim9h.rcp.swtor.SwtorViewFactory;
+import dev.tim9h.rcp.swtor.SwtorView;
 import javafx.application.Platform;
 
 public class LoadingScreenWatcher {
@@ -81,7 +81,7 @@ public class LoadingScreenWatcher {
 	}
 
 	private Path getLoadingscreenPath() {
-		var location = settings.getString(SwtorViewFactory.SETTINGR_INSTALLATION_LOCATION);
+		var location = settings.getString(SwtorView.SETTINGR_INSTALLATION_LOCATION);
 		if (location != null) {
 			return Paths.get(location + "\\swtor\\retailclient\\LoadingScreens\\LoadingScreen.jpg");
 		}
@@ -90,7 +90,7 @@ public class LoadingScreenWatcher {
 	}
 
 	private Path getCustomscreenPath() {
-		var location = settings.getString(SwtorViewFactory.SETTINGR_LOADINGSCREEN_LOCATION);
+		var location = settings.getString(SwtorView.SETTINGR_LOADINGSCREEN_LOCATION);
 		if (location != null) {
 			return Paths.get(location);
 		}
