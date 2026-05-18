@@ -119,7 +119,7 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 			var msg = String.format("Deleted %d combat logs", Integer.valueOf(deletedLogsCount));
 			logger.info(() -> msg);
 			eventManager.echo(msg);
-			eventManager.showToast("SWToR", msg);
+			eventManager.showToast(msg);
 		} else {
 			var msg = String.format("No combat logs older than %d days found", Long.valueOf(maxAge));
 			eventManager.echo(msg);
