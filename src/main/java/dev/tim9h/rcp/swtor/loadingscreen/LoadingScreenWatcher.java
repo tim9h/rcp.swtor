@@ -139,7 +139,7 @@ public class LoadingScreenWatcher {
 				FileUtils.copyFile(source.toFile(), destination.toFile());
 				if (withToast) {
 					logger.debug(() -> "Showing loadingscreen toast");
-					eventManager.showToastAsync("SWToR Loadingscreen restored");
+					eventManager.showToastAsync(settings.getAppTitle(), "SWToR Loadingscreen restored");
 				}
 				logger.info(() -> "Loading screen restored");
 			} catch (IOException e) {
