@@ -19,10 +19,10 @@ import com.google.inject.Inject;
 
 import dev.tim9h.rcp.event.EventManager;
 import dev.tim9h.rcp.logging.InjectLogger;
+import dev.tim9h.rcp.spi.CommandBuilder;
+import dev.tim9h.rcp.spi.CommandNode;
 import dev.tim9h.rcp.spi.Mode;
 import dev.tim9h.rcp.spi.Plugin;
-import dev.tim9h.rcp.spi.StringNode;
-import dev.tim9h.rcp.spi.TreeNode;
 import dev.tim9h.rcp.swtor.loadingscreen.LoadingScreenWatcher;
 import dev.tim9h.rcp.swtor.logpurger.CombatLogPurger;
 import dev.tim9h.swtor.parser.CombatLogWatcher;
@@ -117,44 +117,23 @@ public class SwtorView implements Plugin {
 	@Override
 	public void onShutdown() {
 		combatLogPurger.close();
+		loadingScreenWatcher.stopWatching();
 		combatLogWatcher.stopWatching();
 	}
 
 	@Override
-	public Optional<TreeNode<String>> getModelessCommands() {
-		var tree = new StringNode();
-		var swtor = new TreeNode<>("swtor");
-		swtor.add("screenshotdir");
-		swtor.add(COMBATLOGS).add(PURGE);
-		tree.add(swtor);
-		return Optional.of(tree);
-	}
-
-	@Override
-	public void initBus(EventManager em) {
-		Plugin.super.initBus(eventManager);
-		em.listen("swtor", this::handleSwtorCommands);
-	}
-
-	private void handleSwtorCommands(Object[] data) {
-		if (data == null) {
-			return;
-		}
-		if (COMBATLOGS.equals(data[0])) {
-			if (data.length > 1 && PURGE.equals(data[1])) {
-				eventManager.showWaitingIndicator();
-				CompletableFuture.runAsync(() -> combatLogPurger.deleteCombatLogs());
-			} else {
-				openCombatLogsDirectory();
-			}
-		} else if ("screenshotdir".equals(data[0])) {
-			openScreenshotDirectory();
-		}
+	public Optional<CommandNode> getCommands() {
+		return new CommandBuilder().command("swtor") //
+				.child("screenshotdir", _ -> CompletableFuture.runAsync(this::openScreenshotDirectory)).up()
+				.child(COMBATLOGS, _ -> CompletableFuture.runAsync(this::openCombatLogsDirectory)).child(PURGE, _ -> {
+					eventManager.showWaitingIndicator();
+					CompletableFuture.runAsync(() -> combatLogPurger.deleteCombatLogs());
+				}).build();
 	}
 
 	private void acceptLog(CombatLog log) {
 		if ("AreaEntered".equals(log.getEffect().getEvent()) && StringUtils.isNotBlank(log.getEffect().getArea())) {
-			logger.info(() -> String.format("%s entered %s", log.getSource().getName(), log.getEffect().getArea()));
+			logger.info(() -> log.getSource().getName() + " entered" + log.getEffect().getArea());
 			eventManager.showToast(log.getEffect().getEffect(), log.getEffect().getArea());
 		}
 	}

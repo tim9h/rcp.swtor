@@ -56,13 +56,13 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 		ZonedDateTime nextRun;
 		try {
 			var time = LocalTime.parse(deletionTime, DateTimeFormatter.ofPattern("HH:mm"));
-			nextRun = ZonedDateTime.of(LocalDate.now(), time, ZoneId.systemDefault());
-		} catch (DateTimeParseException e) {
+			nextRun = ZonedDateTime.of(LocalDate.now(ZoneId.systemDefault()), time, ZoneId.systemDefault());
+		} catch (DateTimeParseException _) {
 			logger.warn(() -> "Unable to parse combat log deletion time. Using 00:00 instead of " + deletionTime);
-			nextRun = ZonedDateTime.now().withHour(0).withMinute(0).withSecond(0);
+			nextRun = ZonedDateTime.now(ZoneId.systemDefault()).withHour(0).withMinute(0).withSecond(0);
 		}
 
-		var now = ZonedDateTime.now();
+		var now = ZonedDateTime.now(ZoneId.systemDefault());
 		if (now.compareTo(nextRun) > 0) {
 			nextRun = nextRun.plusDays(1);
 		}
@@ -70,9 +70,16 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 		var initialDelay = duration.getSeconds();
 
 		if (scheduler == null) {
-			scheduler = Executors.newScheduledThreadPool(1);
+			scheduler = Executors.newScheduledThreadPool(1, runnable -> {
+				var thread = new Thread(runnable, "SWToRCombatLogPurger");
+				thread.setDaemon(true);
+				return thread;
+			});
 		}
 
+		if (combatLogPurge != null) {
+			combatLogPurge.cancel(false);
+		}
 		combatLogPurge = scheduler.scheduleAtFixedRate(this::deleteCombatLogs, initialDelay, TimeUnit.DAYS.toSeconds(1),
 				TimeUnit.SECONDS);
 
@@ -80,28 +87,47 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 		logger.debug(() -> String.format("Scheduled with initial delay %d (%s)", Long.valueOf(initialDelay), nr));
 	}
 
-	public void deleteCombatLogs() {
+	public synchronized void deleteCombatLogs() {
 		logger.info(() -> "Started combat file deletion");
-		var combatLogManagmentEnabled = settings.getInt(SwtorView.SETTINGR_COMBATLOGS_MAXAGE) != null;
-		if (combatLogManagmentEnabled) {
-			var path = Path.of(FileSystemView.getFileSystemView().getDefaultDirectory().toString(),
-					"Star Wars - The Old Republic", "CombatLogs");
-			if (Files.exists(path)) {
-				try {
-					Files.walkFileTree(path, this);
-				} catch (IOException e) {
-					logger.warn(() -> "Unable to visit combat log" + e);
-				}
-			} else {
-				logger.warn(() -> "Not managing CombatLogs. Path doesn't exist: " + path);
+		var maxAgeSetting = settings.getLong(SwtorView.SETTINGR_COMBATLOGS_MAXAGE);
+		if (maxAgeSetting == null) {
+			eventManager.echo("Combat log management is disabled");
+			return;
+		}
+		maxAge = maxAgeSetting.longValue();
+		deletedLogsCount = 0;
+		var path = Path.of(FileSystemView.getFileSystemView().getDefaultDirectory().toString(),
+				"Star Wars - The Old Republic", "CombatLogs");
+		if (Files.exists(path)) {
+			try {
+				Files.walkFileTree(path, this);
+			} catch (IOException e) {
+				logger.warn(() -> "Unable to visit combat log" + e);
 			}
+			reportResult();
+		} else {
+			logger.warn(() -> "Not managing CombatLogs. Path doesn't exist: " + path);
+			eventManager.echo("Combat log directory not found");
+		}
+	}
+
+	private void reportResult() {
+		if (deletedLogsCount > 0) {
+			var msg = String.format("Deleted %d combat logs", Integer.valueOf(deletedLogsCount));
+			logger.info(() -> msg);
+			eventManager.echo(msg);
+			eventManager.showToast(settings.getAppTitle(), msg);
+		} else {
+			var msg = String.format("No combat logs older than %d days found", Long.valueOf(maxAge));
+			eventManager.echo(msg);
+			logger.info(() -> msg);
 		}
 	}
 
 	@Override
 	public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) throws IOException {
 		var ageInDays = Duration.between(attrs.creationTime().toInstant(), Instant.now());
-		if (ageInDays.toDays() > getMaxAge()) {
+		if (ageInDays.toDays() > maxAge) {
 			logger.info(() -> "Deleting combat log " + path);
 			try {
 				Files.delete(path);
@@ -113,34 +139,14 @@ public class CombatLogPurger extends SimpleFileVisitor<Path> {
 		return FileVisitResult.CONTINUE;
 	}
 
-	@Override
-	public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-		if (deletedLogsCount > 0) {
-			var msg = String.format("Deleted %d combat logs", Integer.valueOf(deletedLogsCount));
-			logger.info(() -> msg);
-			eventManager.echo(msg);
-			eventManager.showToast(settings.getAppTitle(), msg);
-		} else {
-			var msg = String.format("No combat logs older than %d days found", Long.valueOf(maxAge));
-			eventManager.echo(msg);
-			logger.info(() -> msg);
-		}
-		maxAge = -1;
-		deletedLogsCount = 0;
-		return super.postVisitDirectory(dir, exc);
-	}
-
-	private long getMaxAge() {
-		if (maxAge == -1) {
-			maxAge = settings.getLong(SwtorView.SETTINGR_COMBATLOGS_MAXAGE).longValue();
-		}
-		return maxAge;
-	}
-
 	public void close() {
 		logger.debug(() -> "Shutting down combatlog purge task and scheduler");
-		combatLogPurge.cancel(false);
-		scheduler.shutdownNow();
+		if (combatLogPurge != null) {
+			combatLogPurge.cancel(false);
+		}
+		if (scheduler != null) {
+			scheduler.shutdownNow();
+		}
 		logger.debug(() -> "Combatlog purger shutdown complete");
 	}
 

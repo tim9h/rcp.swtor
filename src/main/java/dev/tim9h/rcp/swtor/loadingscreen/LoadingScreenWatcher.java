@@ -8,8 +8,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchService;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.io.FileUtils;
@@ -22,7 +20,6 @@ import dev.tim9h.rcp.event.EventManager;
 import dev.tim9h.rcp.logging.InjectLogger;
 import dev.tim9h.rcp.settings.Settings;
 import dev.tim9h.rcp.swtor.SwtorView;
-import javafx.application.Platform;
 
 public class LoadingScreenWatcher {
 
@@ -37,23 +34,22 @@ public class LoadingScreenWatcher {
 
 	private AtomicBoolean running = new AtomicBoolean(false);
 
-	private static final List<WatchService> watchServices = new ArrayList<>();
+	private volatile WatchService watchService;
 
-	private Thread thread;
+	private volatile Thread thread;
 
 	@Inject
 	public LoadingScreenWatcher(Injector injector) {
 		injector.injectMembers(this);
 	}
 
-	public void startWatching() {
+	public synchronized void startWatching() {
+		stopWatching();
 		logger.debug(() -> "Start watching and replace loadingscreen");
-		replaceLoadingscreen(false);
 
 		var path = getLoadingscreenPath();
 		if (path == null || Files.notExists(path)) {
 			logger.warn(() -> "Unable to start loadingscreen watcher: loading screen not found: " + path);
-			running.set(false);
 			return;
 		}
 		startWatcherThread(path);
@@ -62,22 +58,45 @@ public class LoadingScreenWatcher {
 	private void startWatcherThread(Path path) {
 		running.set(true);
 		logger.debug(() -> "Starting loadingscreen watcher thread");
-		thread = new Thread(() -> {
-			try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
-				path.getParent().register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
-				watchServices.add(watchService);
-				while (running.get()) {
-					running.set(pollEvents(watchService, path));
+		var watcher = new Thread(() -> watch(path), "SWToRLoadingscreenWatcher");
+		watcher.setDaemon(true);
+		thread = watcher;
+		watcher.start();
+	}
+
+	private void watch(Path path) {
+		try (var service = FileSystems.getDefault().newWatchService()) {
+			watchService = service;
+			path.getParent().register(service, StandardWatchEventKinds.ENTRY_MODIFY);
+			replaceLoadingscreen(false);
+			drain(service);
+			while (running.get()) {
+				if (pollEvents(service, path)) {
+					onFileChanged();
+					drain(service);
 				}
-			} catch (IOException | InterruptedException e) {
-				Thread.currentThread().interrupt();
-				logger.error(() -> "Error while watching loadingscreen", e);
-			} catch (ClosedWatchServiceException e) {
-				// do nothing
 			}
-		}, "SWToRLoadingscreenWatcher");
-		thread.setDaemon(true);
-		thread.start();
+		} catch (InterruptedException _) {
+			Thread.currentThread().interrupt();
+		} catch (IOException e) {
+			logger.error(() -> "Error while watching loadingscreen", e);
+		} catch (ClosedWatchServiceException _) {
+			// stopped
+		} finally {
+			watchService = null;
+		}
+	}
+
+	/**
+	 * Discards events caused by our own file replacement.
+	 */
+	private static void drain(WatchService service) throws InterruptedException {
+		Thread.sleep(1000);
+		var key = service.poll();
+		if (key != null) {
+			key.pollEvents();
+			key.reset();
+		}
 	}
 
 	private Path getLoadingscreenPath() {
@@ -98,32 +117,41 @@ public class LoadingScreenWatcher {
 		return null;
 	}
 
-	public void stopWatching() {
+	public synchronized void stopWatching() {
 		running.set(false);
-		logger.debug(() -> "Shutting down Loadingscreen watcher");
-		watchServices.forEach(service -> {
+		var service = watchService;
+		if (service != null) {
+			logger.debug(() -> "Shutting down Loadingscreen watcher");
 			try {
 				service.close();
-			} catch (IOException e) {
+			} catch (IOException _) {
 				logger.error(() -> "Unable to close watchservice");
 			}
-		});
-		thread.interrupt();
+		}
+		var current = thread;
+		if (current != null && current != Thread.currentThread()) {
+			current.interrupt();
+		}
+		thread = null;
 	}
 
-	private boolean pollEvents(WatchService watchService, Path path)
-			throws InterruptedException, ClosedWatchServiceException {
-		var key = watchService.take();
+	/**
+	 * @return true if the loadingscreen file was modified
+	 */
+	private boolean pollEvents(WatchService service, Path path) throws InterruptedException {
+		var key = service.take();
 		Thread.sleep(1000); // eliminate multiple events (content + change time)
+		var changed = false;
 		for (var event : key.pollEvents()) {
 			if (path.endsWith(((Path) event.context()).toString())) {
-				stopWatching();
-				onFileChanged();
-				Platform.runLater(() -> startWatcherThread(getLoadingscreenPath()));
+				changed = true;
 				break;
 			}
 		}
-		return key.reset();
+		if (!key.reset()) {
+			running.set(false);
+		}
+		return changed;
 	}
 
 	private void onFileChanged() {
@@ -142,7 +170,7 @@ public class LoadingScreenWatcher {
 					eventManager.showToastAsync(settings.getAppTitle(), "SWToR Loadingscreen restored");
 				}
 				logger.info(() -> "Loading screen restored");
-			} catch (IOException e) {
+			} catch (IOException _) {
 				logger.error(() -> "Unable to restore loadingscreen");
 			}
 		} else {
