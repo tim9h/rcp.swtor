@@ -26,6 +26,14 @@
 				<enabled>true</enabled>
 			</snapshots>
 		</repository>
+		<repository>
+			<id>yatorp</id>
+			<name>GitHub Packages</name>
+			<url>https://maven.pkg.github.com/tim9h/Yatorp</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
 	</repositories>
 	
 	<dependencyManagement>
@@ -63,7 +71,7 @@
 		<dependency>
 			<groupId>dev.tim9h</groupId>
 			<artifactId>swtor.parser</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
+			<version>1.0.0</version>
 		</dependency>
 
 	</dependencies>

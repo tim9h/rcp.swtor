@@ -13,6 +13,15 @@
 				<repositoryOrigin>https://maven.pkg.github.com</repositoryOrigin>
 			</repositoryOrigins>
 		</server>
+		
+		<server>
+			<id>yatorp</id>
+			<username>${env.PACKAGES_READ_USERNAME}</username>
+			<password>${env.PACKAGES_READ_TOKEN}</password>
+			<repositoryOrigins>
+				<repositoryOrigin>https://maven.pkg.github.com</repositoryOrigin>
+			</repositoryOrigins>
+		</server>
 
 		<server>
 			<id>github</id>
