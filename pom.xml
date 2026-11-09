@@ -31,7 +31,7 @@
 			<name>GitHub Packages</name>
 			<url>https://maven.pkg.github.com/tim9h/Yatorp</url>
 			<snapshots>
-				<enabled>true</enabled>
+				<enabled>false</enabled>
 			</snapshots>
 		</repository>
 	</repositories>
@@ -98,6 +98,16 @@
 				<artifactId>maven-shade-plugin</artifactId>
 				<configuration>
 					<createDependencyReducedPom>false</createDependencyReducedPom>
+					<filters>
+						<filter>
+							<artifact>*:*</artifact>
+							<excludes>
+								<exclude>module-info.class</exclude>
+								<exclude>META-INF/versions/**/module-info.class</exclude>
+								<exclude>META-INF/MANIFEST.MF</exclude>
+							</excludes>
+						</filter>
+					</filters>
 				</configuration>
 				<executions>
 					<execution>
